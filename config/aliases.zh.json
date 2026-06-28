@@ -1,0 +1,94 @@
+{
+  "aihot": {
+    "alias": "AI 资讯日报",
+    "purpose": "查询 AI HOT 中文 AI 资讯，整理今日 AI 圈动态。"
+  },
+  "angle-thinker": {
+    "alias": "公众号破题器",
+    "purpose": "把公众号选题拆成多个破题角度，供后续写长文选择。"
+  },
+  "khazix-writer": {
+    "alias": "卡兹克长文写作",
+    "purpose": "按数字生命卡兹克风格写公众号长文。"
+  },
+  "wechat-title": {
+    "alias": "公众号标题匠人",
+    "purpose": "根据公众号成稿反推出多个标题候选。"
+  },
+  "wechat-article-to-markdown": {
+    "alias": "公众号文章转 Markdown",
+    "purpose": "抓取微信公众号文章并保存成 Markdown，保留图片位置。"
+  },
+  "hv-analysis": {
+    "alias": "横纵深度研究",
+    "purpose": "用横纵分析法系统研究产品、公司、技术或人物。"
+  },
+  "ppt-master": {
+    "alias": "PPT 大师",
+    "purpose": "把文档、网页或 Markdown 转成高质量 SVG 页面和 PPTX。"
+  },
+  "imagegen": {
+    "alias": "图像生成/编辑",
+    "purpose": "生成或编辑图片素材，例如照片、插画、贴图、精灵图。"
+  },
+  "openai-docs": {
+    "alias": "OpenAI 文档查询",
+    "purpose": "查询 OpenAI 官方文档、模型信息和 API 用法。"
+  },
+  "github": {
+    "alias": "GitHub 管理",
+    "purpose": "处理 GitHub 仓库、Issue、PR 的查看、总结和定位。"
+  },
+  "gh-fix-ci": {
+    "alias": "CI 修复",
+    "purpose": "排查并修复 GitHub Actions 或 PR 检查失败。"
+  },
+  "gh-address-comments": {
+    "alias": "PR 评论处理",
+    "purpose": "读取并处理 GitHub PR 里的 review 评论和修改请求。"
+  },
+  "yeet": {
+    "alias": "GitHub 发版",
+    "purpose": "把本地改动提交到 GitHub，并创建草稿 PR。"
+  },
+  "pdf": {
+    "alias": "PDF 处理",
+    "purpose": "读取、生成、拆分、合并、检查和渲染 PDF 文件。"
+  },
+  "documents": {
+    "alias": "Word 文档",
+    "purpose": "创建、编辑、批注和检查 Word 文档或 docx 文件。"
+  },
+  "Presentations": {
+    "alias": "演示文稿",
+    "purpose": "创建或编辑 PowerPoint、Google Slides 等演示文稿。"
+  },
+  "Spreadsheets": {
+    "alias": "表格处理",
+    "purpose": "创建、修改、分析表格文件，支持 xlsx、csv、tsv 等格式。"
+  },
+  "control-chrome": {
+    "alias": "Chrome 控制",
+    "purpose": "控制用户当前 Chrome 浏览器，适合需要登录态、扩展或现有标签页的任务。"
+  },
+  "control-in-app-browser": {
+    "alias": "内置浏览器控制",
+    "purpose": "控制内置浏览器，用于打开、测试、截图和检查网页。"
+  },
+  "computer-use": {
+    "alias": "电脑操作",
+    "purpose": "通过点击、输入、拖拽等方式操作本机应用界面。"
+  },
+  "skill-creator": {
+    "alias": "Skill 创建器",
+    "purpose": "创建或改造 skill 的写作指南。"
+  },
+  "skill-installer": {
+    "alias": "Skill 安装器",
+    "purpose": "安装 skill，支持精选列表或 GitHub 仓库来源。"
+  },
+  "plugin-creator": {
+    "alias": "插件创建器",
+    "purpose": "创建和维护插件目录、manifest 和本地安装流程。"
+  }
+}

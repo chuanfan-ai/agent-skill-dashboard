@@ -1,0 +1,72 @@
+[
+  {
+    "platform": "Codex 本地",
+    "sourceType": "Codex 本地",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.codex/skills"]
+  },
+  {
+    "platform": "Codex 插件缓存",
+    "sourceType": "Codex 插件",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.codex/plugins/cache"]
+  },
+  {
+    "platform": "共享个人库",
+    "sourceType": "个人共享",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.agents/skills"]
+  },
+  {
+    "platform": "Claude Code",
+    "sourceType": "个人共享",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.claude/skills"]
+  },
+  {
+    "platform": "Cola 个人链接",
+    "sourceType": "个人共享",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.cola/skills"]
+  },
+  {
+    "platform": "Cola 内置",
+    "sourceType": "Cola 内置",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.cola/resources/skills"]
+  },
+  {
+    "platform": "Trae CN",
+    "sourceType": "个人共享",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.trae-cn/skills"]
+  },
+  {
+    "platform": "OpenClaw",
+    "sourceType": "个人共享",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.openclaw/skills"]
+  },
+  {
+    "platform": "WorkBuddy",
+    "sourceType": "个人共享",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": ["~/.workbuddy/skills"]
+  },
+  {
+    "platform": "候选库",
+    "sourceType": "候选未安装",
+    "type": "candidate",
+    "maxDepth": 8,
+    "paths": ["~/.codex/vendor_imports/skills"]
+  }
+]

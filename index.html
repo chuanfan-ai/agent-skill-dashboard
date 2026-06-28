@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skill 管理台</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #16181d;
+      --muted: #667085;
+      --line: #d9dee7;
+      --accent: #0f766e;
+      --accent-2: #2563eb;
+      --warn: #b45309;
+      --danger: #b42318;
+      --ok: #047857;
+      --chip: #eef2f6;
+      --shadow: 0 1px 2px rgba(16, 24, 40, .06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+
+    button.active {
+      border-color: var(--accent);
+      background: #e6f4f1;
+      color: #064e45;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .58;
+    }
+
+    .app {
+      min-height: 100vh;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .header-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 20px 24px 18px;
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .updated {
+      color: var(--muted);
+      text-align: right;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .header-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .status-dot {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-dot::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #d0d5dd;
+    }
+
+    .status-dot.on::before {
+      background: var(--ok);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      background: #fbfcfe;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1.1;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 18px 24px 32px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.4fr) repeat(4, minmax(140px, .7fr)) auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 8px 10px;
+    }
+
+    .view-toggle {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 0 16px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      background: var(--chip);
+      color: #344054;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .card-head {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .name {
+      min-width: 0;
+    }
+
+    .name strong {
+      display: block;
+      overflow-wrap: anywhere;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+
+    .alias {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .desc {
+      color: #344054;
+      margin: 8px 0 12px;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .meta {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+
+    .tag {
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3538cd;
+      padding: 3px 8px;
+      font-size: 12px;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    .tag.source { background: #ecfdf3; color: var(--ok); }
+    .tag.warn { background: #fffaeb; color: var(--warn); }
+    .tag.danger { background: #fef3f2; color: var(--danger); }
+    .tag.neutral { background: #f2f4f7; color: #475467; }
+
+    details {
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+
+    summary {
+      cursor: pointer;
+      color: var(--accent-2);
+      font-weight: 600;
+    }
+
+    .path {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      overflow-wrap: anywhere;
+      background: #f2f4f7;
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+
+    .copy {
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .hint {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      margin: 8px 0;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .table-wrap {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: auto;
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1080px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475467;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      font-size: 12px;
+    }
+
+    td {
+      color: #344054;
+    }
+
+    .table-name {
+      color: var(--ink);
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 32px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 960px) {
+      .topline {
+        display: block;
+      }
+
+      .updated {
+        text-align: left;
+        margin-top: 10px;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .toolbar .search {
+        grid-column: 1 / -1;
+      }
+
+      .view-toggle {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .header-inner, main {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .metrics, .toolbar, .cards {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="header-inner">
+        <div class="topline">
+          <div>
+            <h1>Skill 管理台</h1>
+            <div class="sub">集中查看本机 Codex、Claude Code、Cola、OpenClaw、Trae 等平台接入的 skill。</div>
+          </div>
+          <div>
+            <div class="updated" id="updated"></div>
+            <div class="header-actions">
+              <span class="status-dot" id="serverStatus">本地服务未连接</span>
+              <button id="refreshData" class="primary" type="button">刷新数据</button>
+            </div>
+          </div>
+        </div>
+        <section class="metrics" id="metrics"></section>
+      </div>
+    </header>
+
+    <main>
+      <section class="toolbar" aria-label="筛选工具">
+        <input class="search" id="search" type="search" placeholder="搜索名称、用途、平台、路径、风险提示">
+        <select id="platformFilter" aria-label="平台筛选"></select>
+        <select id="sourceFilter" aria-label="来源筛选"></select>
+        <select id="statusFilter" aria-label="状态筛选"></select>
+        <select id="categoryFilter" aria-label="分类筛选"></select>
+        <div class="view-toggle">
+          <button id="cardView" class="active" type="button">卡片</button>
+          <button id="tableView" type="button">表格</button>
+        </div>
+      </section>
+
+      <div class="chips" id="quickFilters"></div>
+      <section class="content">
+        <div id="resultInfo" class="muted"></div>
+        <div id="cards" class="cards"></div>
+        <div id="tableWrap" class="table-wrap hidden"></div>
+        <div id="empty" class="empty hidden">没有匹配的 skill。</div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./skills-data.js"></script>
+  <script>
+    let data = window.SKILL_DATA || { summary: {}, skills: [] };
+    const state = {
+      query: "",
+      platform: "全部平台",
+      source: "全部来源",
+      status: "全部状态",
+      category: "全部分类",
+      view: "card",
+      quick: ""
+    };
+
+    const els = {
+      updated: document.getElementById("updated"),
+      metrics: document.getElementById("metrics"),
+      search: document.getElementById("search"),
+      platform: document.getElementById("platformFilter"),
+      source: document.getElementById("sourceFilter"),
+      status: document.getElementById("statusFilter"),
+      category: document.getElementById("categoryFilter"),
+      quickFilters: document.getElementById("quickFilters"),
+      resultInfo: document.getElementById("resultInfo"),
+      cards: document.getElementById("cards"),
+      tableWrap: document.getElementById("tableWrap"),
+      empty: document.getElementById("empty"),
+      cardView: document.getElementById("cardView"),
+      tableView: document.getElementById("tableView")
+      ,
+      refreshData: document.getElementById("refreshData"),
+      serverStatus: document.getElementById("serverStatus")
+    };
+
+    function unique(values) {
+      return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"));
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+
+    function tagClass(value) {
+      if (value === "重复") return "tag warn";
+      if (value === "平台缓存" || value === "跨平台同名") return "tag neutral";
+      if (value === "候选未安装") return "tag neutral";
+      if (value.includes("Coze")) return "tag danger";
+      return "tag";
+    }
+
+    function fillSelect(select, first, values) {
+      select.innerHTML = [first, ...values].map(value => `<option>${escapeHtml(value)}</option>`).join("");
+    }
+
+    function renderMetrics() {
+      const summary = data.summary || {};
+      const metrics = [
+        ["可用文件", summary.activeFiles ?? 0],
+        ["去重名称", summary.uniqueNames ?? 0],
+        ["候选未安装", summary.candidateFiles ?? 0],
+        ["需处理重复", summary.duplicateNames ?? 0],
+        ["总入口文件", summary.totalFiles ?? 0]
+      ];
+      els.metrics.innerHTML = metrics.map(([label, value]) => `
+        <div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>
+      `).join("");
+      els.updated.textContent = `数据生成：${data.generatedAt || "未知"}`;
+    }
+
+    function renderFilters() {
+      const skills = data.skills || [];
+      fillSelect(els.platform, "全部平台", unique(skills.flatMap(skill => skill.platforms || [])));
+      fillSelect(els.source, "全部来源", unique(skills.map(skill => skill.sourceType)));
+      fillSelect(els.status, "全部状态", unique(skills.map(skill => skill.status)));
+      fillSelect(els.category, "全部分类", unique(skills.map(skill => skill.category)));
+      const quicks = [
+        ["个人核心", "个人共享"],
+        ["Codex", "Codex"],
+        ["Claude", "Claude Code"],
+        ["Cola", "Cola"],
+        ["重复", "重复"],
+        ["候选", "候选未安装"],
+        ["Coze 边界", "using-coze-cli"]
+      ];
+      els.quickFilters.innerHTML = quicks.map(([label, value]) => `
+        <button class="chip" type="button" data-quick="${escapeHtml(value)}">${escapeHtml(label)}</button>
+      `).join("");
+    }
+
+    function matches(skill) {
+      const fields = [
+        skill.name,
+        skill.alias,
+        skill.purposeZh,
+        skill.description,
+        skill.category,
+        skill.sourceType,
+        skill.status,
+        skill.risk,
+        skill.realPath,
+        ...(skill.platforms || []),
+        ...(skill.entryPaths || [])
+      ].join(" ").toLowerCase();
+      const query = state.query.trim().toLowerCase();
+      if (query && !fields.includes(query)) return false;
+      if (state.platform !== "全部平台" && !(skill.platforms || []).includes(state.platform)) return false;
+      if (state.source !== "全部来源" && skill.sourceType !== state.source) return false;
+      if (state.status !== "全部状态" && skill.status !== state.status) return false;
+      if (state.category !== "全部分类" && skill.category !== state.category) return false;
+      if (state.quick && !fields.includes(state.quick.toLowerCase())) return false;
+      return true;
+    }
+
+    function renderCard(skill) {
+      const platforms = (skill.platforms || []).map(platform => `<span class="tag">${escapeHtml(platform)}</span>`).join("");
+      const duplicate = skill.duplicates?.length ? `<span class="tag warn">重复 ${skill.duplicateCount}</span>` : "";
+      const entryPaths = (skill.entryPaths || []).filter(path => path !== skill.realPath);
+      return `
+        <article class="card">
+          <div class="card-head">
+            <div class="name">
+              <strong>${escapeHtml(skill.name)}</strong>
+              <div class="alias">${escapeHtml(skill.alias || "未设置中文别名")}</div>
+            </div>
+            <span class="${tagClass(skill.status)}">${escapeHtml(skill.status)}</span>
+          </div>
+          <div class="meta">
+            <span class="tag source">${escapeHtml(skill.sourceType)}</span>
+            <span class="tag neutral">${escapeHtml(skill.category)}</span>
+            ${duplicate}
+          </div>
+          <p class="desc">${escapeHtml(skill.purposeZh || skill.description || "暂无中文用途")}</p>
+          <div class="meta">${platforms}</div>
+          <details>
+            <summary>详情</summary>
+            <p><strong>中文用途：</strong>${escapeHtml(skill.purposeZh || "暂无中文用途")}</p>
+            <p><strong>原始描述：</strong>${escapeHtml(skill.description || "暂无原始描述")}</p>
+            <p><strong>风险提示：</strong>${escapeHtml(skill.risk)}</p>
+            <p><strong>更新时间：</strong>${escapeHtml(skill.updatedAt)}</p>
+            <div class="hint">路径不要放进 Finder 搜索框搜。要定位文件，请在 Finder 使用“前往 > 前往文件夹”，或按 Command + Shift + G 后粘贴路径。</div>
+            <p><strong>真实位置：</strong></p>
+            <div class="path">
+              <code>${escapeHtml(skill.realPath)}</code>
+              <button class="copy" type="button" data-open="${escapeHtml(skill.realPath)}">打开文件夹</button>
+              <button class="copy" type="button" data-copy="${escapeHtml(skill.realPath)}">复制路径</button>
+            </div>
+            ${entryPaths.length ? `
+              <details>
+                <summary>平台入口路径 ${entryPaths.length} 个</summary>
+                <div class="hint">这些通常是软链接或平台缓存入口，不是另一份需要单独管理的 skill。</div>
+                ${entryPaths.map(path => `
+                  <div class="path">
+                    <code>${escapeHtml(path)}</code>
+                    <button class="copy" type="button" data-copy="${escapeHtml(path)}">复制路径</button>
+                  </div>
+                `).join("")}
+              </details>
+            ` : ""}
+          </details>
+        </article>
+      `;
+    }
+
+    function rerenderAll() {
+      renderMetrics();
+      renderFilters();
+      render();
+    }
+
+    async function checkServer() {
+      try {
+        const response = await fetch("./api/status", { method: "GET" });
+        if (!response.ok) throw new Error("not ready");
+        els.serverStatus.textContent = "本地服务已连接";
+        els.serverStatus.classList.add("on");
+        els.refreshData.disabled = false;
+      } catch {
+        els.serverStatus.textContent = "请用启动文件打开";
+        els.serverStatus.classList.remove("on");
+        els.refreshData.disabled = false;
+      }
+    }
+
+    async function refreshFromServer() {
+      const oldText = els.refreshData.textContent;
+      els.refreshData.disabled = true;
+      els.refreshData.textContent = "刷新中";
+      try {
+        const response = await fetch("./api/refresh", { method: "POST" });
+        if (!response.ok) throw new Error("refresh failed");
+        data = await response.json();
+        window.SKILL_DATA = data;
+        state.quick = "";
+        rerenderAll();
+        els.serverStatus.textContent = "已刷新";
+        els.serverStatus.classList.add("on");
+      } catch {
+        alert("这个按钮需要通过“启动Skill管理台.command”打开页面后才能使用。普通双击 HTML 时，浏览器不允许网页刷新本机文件。");
+      } finally {
+        els.refreshData.disabled = false;
+        els.refreshData.textContent = oldText;
+      }
+    }
+
+    async function openFolder(path) {
+      try {
+        const response = await fetch("./api/open-folder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path })
+        });
+        if (!response.ok) throw new Error("open failed");
+      } catch {
+        alert("打开文件夹需要通过“启动Skill管理台.command”打开页面。普通双击 HTML 时，浏览器不能直接操作 Finder。");
+      }
+    }
+
+    function renderTable(skills) {
+      els.tableWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>用途</th>
+              <th>平台</th>
+              <th>来源</th>
+              <th>状态</th>
+              <th>分类</th>
+              <th>风险</th>
+              <th>路径</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${skills.map(skill => `
+              <tr>
+                <td><div class="table-name">${escapeHtml(skill.name)}</div><div class="muted">${escapeHtml(skill.alias || "")}</div></td>
+                <td>${escapeHtml(skill.purposeZh || skill.description || "暂无中文用途")}</td>
+                <td>${escapeHtml((skill.platforms || []).join(" / "))}</td>
+                <td>${escapeHtml(skill.sourceType)}</td>
+                <td>${escapeHtml(skill.status)}</td>
+                <td>${escapeHtml(skill.category)}</td>
+                <td>${escapeHtml(skill.risk)}</td>
+                <td><code>${escapeHtml(skill.realPath)}</code></td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function render() {
+      const skills = (data.skills || []).filter(matches);
+      els.resultInfo.textContent = `当前显示 ${skills.length} 个，全部 ${data.skills?.length || 0} 个。`;
+      els.empty.classList.toggle("hidden", skills.length > 0);
+      els.cards.classList.toggle("hidden", state.view !== "card" || skills.length === 0);
+      els.tableWrap.classList.toggle("hidden", state.view !== "table" || skills.length === 0);
+      els.cardView.classList.toggle("active", state.view === "card");
+      els.tableView.classList.toggle("active", state.view === "table");
+      if (state.view === "card") {
+        els.cards.innerHTML = skills.map(renderCard).join("");
+      } else {
+        renderTable(skills);
+      }
+    }
+
+    function bind() {
+      els.search.addEventListener("input", event => {
+        state.query = event.target.value;
+        render();
+      });
+      els.platform.addEventListener("change", event => {
+        state.platform = event.target.value;
+        render();
+      });
+      els.source.addEventListener("change", event => {
+        state.source = event.target.value;
+        render();
+      });
+      els.status.addEventListener("change", event => {
+        state.status = event.target.value;
+        render();
+      });
+      els.category.addEventListener("change", event => {
+        state.category = event.target.value;
+        render();
+      });
+      els.cardView.addEventListener("click", () => {
+        state.view = "card";
+        render();
+      });
+      els.tableView.addEventListener("click", () => {
+        state.view = "table";
+        render();
+      });
+      els.refreshData.addEventListener("click", refreshFromServer);
+      els.quickFilters.addEventListener("click", event => {
+        const button = event.target.closest("button[data-quick]");
+        if (!button) return;
+        state.quick = state.quick === button.dataset.quick ? "" : button.dataset.quick;
+        [...els.quickFilters.querySelectorAll("button")].forEach(item => {
+          item.classList.toggle("active", item.dataset.quick === state.quick);
+        });
+        render();
+      });
+      document.body.addEventListener("click", async event => {
+        const button = event.target.closest("button[data-copy]");
+        if (!button) return;
+        const value = button.dataset.copy;
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const input = document.createElement("textarea");
+          input.value = value;
+          input.style.position = "fixed";
+          input.style.opacity = "0";
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand("copy");
+          input.remove();
+        }
+        const old = button.textContent;
+        button.textContent = "已复制";
+        setTimeout(() => button.textContent = old, 1000);
+      });
+      document.body.addEventListener("click", event => {
+        const button = event.target.closest("button[data-open]");
+        if (!button) return;
+        openFolder(button.dataset.open);
+      });
+    }
+
+    rerenderAll();
+    bind();
+    checkServer();
+  </script>
+</body>
+</html>

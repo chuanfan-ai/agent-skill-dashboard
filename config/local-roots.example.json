@@ -1,0 +1,11 @@
+[
+  {
+    "platform": "My Custom Agent",
+    "type": "active",
+    "maxDepth": 8,
+    "paths": [
+      "~/my-agent/skills",
+      "%USERPROFILE%\\.my-agent\\skills"
+    ]
+  }
+]
