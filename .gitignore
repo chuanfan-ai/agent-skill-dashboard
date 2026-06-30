@@ -2,4 +2,5 @@ __pycache__/
 *.pyc
 .DS_Store
 config/local-roots.json
+config/local-cli-catalog.json
 skills-data.js

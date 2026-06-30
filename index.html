@@ -136,6 +136,17 @@
       gap: 10px;
     }
 
+    .mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin: 16px 0 0;
+      flex-wrap: wrap;
+    }
+
+    .mode-tab {
+      min-width: 92px;
+    }
+
     .metric {
       border: 1px solid var(--line);
       background: #fbfcfe;
@@ -441,6 +452,10 @@
           </div>
         </div>
         <section class="metrics" id="metrics"></section>
+        <nav class="mode-tabs" aria-label="页面切换">
+          <button id="skillsMode" class="mode-tab active" type="button">Skill</button>
+          <button id="cliMode" class="mode-tab" type="button">CLI</button>
+        </nav>
       </div>
     </header>
 
@@ -469,8 +484,9 @@
 
   <script src="./skills-data.js"></script>
   <script>
-    let data = window.SKILL_DATA || { summary: {}, skills: [] };
+    let data = window.SKILL_DATA || { summary: {}, skills: [], cliSummary: {}, clis: [] };
     const state = {
+      mode: "skills",
       query: "",
       platform: "全部平台",
       source: "全部来源",
@@ -483,6 +499,8 @@
     const els = {
       updated: document.getElementById("updated"),
       metrics: document.getElementById("metrics"),
+      skillsMode: document.getElementById("skillsMode"),
+      cliMode: document.getElementById("cliMode"),
       search: document.getElementById("search"),
       platform: document.getElementById("platformFilter"),
       source: document.getElementById("sourceFilter"),
@@ -494,8 +512,7 @@
       tableWrap: document.getElementById("tableWrap"),
       empty: document.getElementById("empty"),
       cardView: document.getElementById("cardView"),
-      tableView: document.getElementById("tableView")
-      ,
+      tableView: document.getElementById("tableView"),
       refreshData: document.getElementById("refreshData"),
       serverStatus: document.getElementById("serverStatus")
     };
@@ -516,9 +533,8 @@
 
     function tagClass(value) {
       if (value === "重复") return "tag warn";
-      if (value === "平台缓存" || value === "跨平台同名") return "tag neutral";
-      if (value === "候选未安装") return "tag neutral";
-      if (value.includes("Coze")) return "tag danger";
+      if (value === "未找到") return "tag danger";
+      if (value === "平台缓存" || value === "跨平台同名" || value === "候选未安装") return "tag neutral";
       return "tag";
     }
 
@@ -526,15 +542,58 @@
       select.innerHTML = [first, ...values].map(value => `<option>${escapeHtml(value)}</option>`).join("");
     }
 
-    function renderMetrics() {
-      const summary = data.summary || {};
-      const metrics = [
-        ["可用文件", summary.activeFiles ?? 0],
-        ["去重名称", summary.uniqueNames ?? 0],
-        ["候选未安装", summary.candidateFiles ?? 0],
-        ["需处理重复", summary.duplicateNames ?? 0],
-        ["总入口文件", summary.totalFiles ?? 0]
+    function currentItems() {
+      return state.mode === "skills" ? (data.skills || []) : (data.clis || []);
+    }
+
+    function itemFields(item) {
+      if (state.mode === "skills") {
+        return [
+          item.name,
+          item.alias,
+          item.purposeZh,
+          item.description,
+          item.category,
+          item.sourceType,
+          item.status,
+          item.risk,
+          item.realPath,
+          ...(item.platforms || []),
+          ...(item.entryPaths || [])
+        ];
+      }
+      return [
+        item.command,
+        item.alias,
+        item.purposeZh,
+        item.category,
+        item.sourceType,
+        item.status,
+        item.sharedScope,
+        item.version,
+        item.primaryPath,
+        item.risk,
+        ...(item.allPaths || [])
       ];
+    }
+
+    function renderMetrics() {
+      const summary = state.mode === "skills" ? (data.summary || {}) : (data.cliSummary || {});
+      const metrics = state.mode === "skills"
+        ? [
+          ["可用文件", summary.activeFiles ?? 0],
+          ["去重名称", summary.uniqueNames ?? 0],
+          ["候选未安装", summary.candidateFiles ?? 0],
+          ["需处理重复", summary.duplicateNames ?? 0],
+          ["总入口文件", summary.totalFiles ?? 0]
+        ]
+        : [
+          ["可用 CLI", summary.availableCommands ?? 0],
+          ["共享倾向", summary.sharedLikeCommands ?? 0],
+          ["未找到", summary.missingCommands ?? 0],
+          ["来源类型", Object.keys(summary.sourceCounts || {}).length],
+          ["配置命令", summary.totalCommands ?? 0]
+        ];
       els.metrics.innerHTML = metrics.map(([label, value]) => `
         <div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>
       `).join("");
@@ -542,50 +601,55 @@
     }
 
     function renderFilters() {
-      const skills = data.skills || [];
-      fillSelect(els.platform, "全部平台", unique(skills.flatMap(skill => skill.platforms || [])));
-      fillSelect(els.source, "全部来源", unique(skills.map(skill => skill.sourceType)));
-      fillSelect(els.status, "全部状态", unique(skills.map(skill => skill.status)));
-      fillSelect(els.category, "全部分类", unique(skills.map(skill => skill.category)));
-      const quicks = [
-        ["个人核心", "个人共享"],
-        ["Codex", "Codex"],
-        ["Claude", "Claude Code"],
-        ["Cola", "Cola"],
-        ["重复", "重复"],
-        ["候选", "候选未安装"],
-        ["Coze 边界", "using-coze-cli"]
-      ];
+      const items = currentItems();
+      if (state.mode === "skills") {
+        fillSelect(els.platform, "全部平台", unique(items.flatMap(item => item.platforms || [])));
+        els.platform.disabled = false;
+        fillSelect(els.source, "全部来源", unique(items.map(item => item.sourceType)));
+        fillSelect(els.status, "全部状态", unique(items.map(item => item.status)));
+        fillSelect(els.category, "全部分类", unique(items.map(item => item.category)));
+      } else {
+        fillSelect(els.platform, "全部平台", []);
+        els.platform.disabled = true;
+        fillSelect(els.source, "全部来源", unique(items.map(item => item.sourceType)));
+        fillSelect(els.status, "全部状态", unique(items.map(item => item.status)));
+        fillSelect(els.category, "全部分类", unique(items.map(item => item.category)));
+      }
+      const quicks = state.mode === "skills"
+        ? [
+          ["个人核心", "个人共享"],
+          ["Codex", "Codex"],
+          ["Claude", "Claude Code"],
+          ["Cola", "Cola"],
+          ["重复", "重复"],
+          ["候选", "候选未安装"]
+        ]
+        : [
+          ["用户全局", "用户全局"],
+          ["系统共享", "系统内置"],
+          ["Codex 运行时", "Codex 运行时"],
+          ["未找到", "未找到"],
+          ["包管理", "包管理"],
+          ["智能体", "智能体"]
+        ];
       els.quickFilters.innerHTML = quicks.map(([label, value]) => `
         <button class="chip" type="button" data-quick="${escapeHtml(value)}">${escapeHtml(label)}</button>
       `).join("");
     }
 
-    function matches(skill) {
-      const fields = [
-        skill.name,
-        skill.alias,
-        skill.purposeZh,
-        skill.description,
-        skill.category,
-        skill.sourceType,
-        skill.status,
-        skill.risk,
-        skill.realPath,
-        ...(skill.platforms || []),
-        ...(skill.entryPaths || [])
-      ].join(" ").toLowerCase();
+    function matches(item) {
+      const fields = itemFields(item).join(" ").toLowerCase();
       const query = state.query.trim().toLowerCase();
       if (query && !fields.includes(query)) return false;
-      if (state.platform !== "全部平台" && !(skill.platforms || []).includes(state.platform)) return false;
-      if (state.source !== "全部来源" && skill.sourceType !== state.source) return false;
-      if (state.status !== "全部状态" && skill.status !== state.status) return false;
-      if (state.category !== "全部分类" && skill.category !== state.category) return false;
+      if (state.mode === "skills" && state.platform !== "全部平台" && !(item.platforms || []).includes(state.platform)) return false;
+      if (state.source !== "全部来源" && item.sourceType !== state.source) return false;
+      if (state.status !== "全部状态" && item.status !== state.status) return false;
+      if (state.category !== "全部分类" && item.category !== state.category) return false;
       if (state.quick && !fields.includes(state.quick.toLowerCase())) return false;
       return true;
     }
 
-    function renderCard(skill) {
+    function renderSkillCard(skill) {
       const platforms = (skill.platforms || []).map(platform => `<span class="tag">${escapeHtml(platform)}</span>`).join("");
       const duplicate = skill.duplicates?.length ? `<span class="tag warn">重复 ${skill.duplicateCount}</span>` : "";
       const entryPaths = (skill.entryPaths || []).filter(path => path !== skill.realPath);
@@ -611,7 +675,6 @@
             <p><strong>原始描述：</strong>${escapeHtml(skill.description || "暂无原始描述")}</p>
             <p><strong>风险提示：</strong>${escapeHtml(skill.risk)}</p>
             <p><strong>更新时间：</strong>${escapeHtml(skill.updatedAt)}</p>
-            <div class="hint">路径不要放进 Finder 搜索框搜。要定位文件，请在 Finder 使用“前往 > 前往文件夹”，或按 Command + Shift + G 后粘贴路径。</div>
             <p><strong>真实位置：</strong></p>
             <div class="path">
               <code>${escapeHtml(skill.realPath)}</code>
@@ -635,10 +698,126 @@
       `;
     }
 
+    function renderCliCard(cli) {
+      const allPaths = (cli.allPaths || []).filter(path => path !== cli.primaryPath);
+      return `
+        <article class="card">
+          <div class="card-head">
+            <div class="name">
+              <strong>${escapeHtml(cli.command)}</strong>
+              <div class="alias">${escapeHtml(cli.alias || "未设置中文别名")}</div>
+            </div>
+            <span class="${tagClass(cli.status)}">${escapeHtml(cli.status)}</span>
+          </div>
+          <div class="meta">
+            <span class="tag source">${escapeHtml(cli.sourceType)}</span>
+            <span class="tag neutral">${escapeHtml(cli.category)}</span>
+          </div>
+          <p class="desc">${escapeHtml(cli.purposeZh || "暂无中文用途")}</p>
+          <details>
+            <summary>详情</summary>
+            <p><strong>共享判断：</strong>${escapeHtml(cli.sharedScope)}</p>
+            <p><strong>版本：</strong>${escapeHtml(cli.version || "未识别")}</p>
+            <p><strong>风险提示：</strong>${escapeHtml(cli.risk)}</p>
+            <p><strong>主路径：</strong></p>
+            <div class="path">
+              <code>${escapeHtml(cli.primaryPath || "未找到")}</code>
+              ${cli.primaryPath ? `<button class="copy" type="button" data-open="${escapeHtml(cli.primaryPath)}">打开文件夹</button>
+              <button class="copy" type="button" data-copy="${escapeHtml(cli.primaryPath)}">复制路径</button>` : ""}
+            </div>
+            ${allPaths.length ? `
+              <details>
+                <summary>其他 PATH 命中 ${allPaths.length} 个</summary>
+                ${allPaths.map(path => `
+                  <div class="path">
+                    <code>${escapeHtml(path)}</code>
+                    <button class="copy" type="button" data-copy="${escapeHtml(path)}">复制路径</button>
+                  </div>
+                `).join("")}
+              </details>
+            ` : ""}
+          </details>
+        </article>
+      `;
+    }
+
+    function renderTable(items) {
+      const rows = state.mode === "skills"
+        ? items.map(skill => `
+          <tr>
+            <td><div class="table-name">${escapeHtml(skill.name)}</div><div class="muted">${escapeHtml(skill.alias || "")}</div></td>
+            <td>${escapeHtml(skill.purposeZh || skill.description || "暂无中文用途")}</td>
+            <td>${escapeHtml((skill.platforms || []).join(" / "))}</td>
+            <td>${escapeHtml(skill.sourceType)}</td>
+            <td>${escapeHtml(skill.status)}</td>
+            <td>${escapeHtml(skill.category)}</td>
+            <td>${escapeHtml(skill.risk)}</td>
+            <td><code>${escapeHtml(skill.realPath)}</code></td>
+          </tr>
+        `).join("")
+        : items.map(cli => `
+          <tr>
+            <td><div class="table-name">${escapeHtml(cli.command)}</div><div class="muted">${escapeHtml(cli.alias || "")}</div></td>
+            <td>${escapeHtml(cli.purposeZh || "")}</td>
+            <td>${escapeHtml(cli.sharedScope || "")}</td>
+            <td>${escapeHtml(cli.sourceType)}</td>
+            <td>${escapeHtml(cli.status)}</td>
+            <td>${escapeHtml(cli.category)}</td>
+            <td>${escapeHtml(cli.version || "未识别")}</td>
+            <td><code>${escapeHtml(cli.primaryPath || "未找到")}</code></td>
+          </tr>
+        `).join("");
+      els.tableWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>用途</th>
+              <th>${state.mode === "skills" ? "平台" : "共享判断"}</th>
+              <th>来源</th>
+              <th>状态</th>
+              <th>分类</th>
+              <th>${state.mode === "skills" ? "风险" : "版本"}</th>
+              <th>路径</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function render() {
+      const items = currentItems().filter(matches);
+      const label = state.mode === "skills" ? "skill" : "CLI";
+      els.resultInfo.textContent = `当前显示 ${items.length} 个 ${label}，全部 ${currentItems().length} 个。`;
+      els.empty.classList.toggle("hidden", items.length > 0);
+      els.cards.classList.toggle("hidden", state.view !== "card" || items.length === 0);
+      els.tableWrap.classList.toggle("hidden", state.view !== "table" || items.length === 0);
+      els.cardView.classList.toggle("active", state.view === "card");
+      els.tableView.classList.toggle("active", state.view === "table");
+      els.skillsMode.classList.toggle("active", state.mode === "skills");
+      els.cliMode.classList.toggle("active", state.mode === "cli");
+      if (state.view === "card") {
+        els.cards.innerHTML = items.map(item => state.mode === "skills" ? renderSkillCard(item) : renderCliCard(item)).join("");
+      } else {
+        renderTable(items);
+      }
+    }
+
     function rerenderAll() {
       renderMetrics();
       renderFilters();
       render();
+    }
+
+    function resetFilters() {
+      state.query = "";
+      state.platform = "全部平台";
+      state.source = "全部来源";
+      state.status = "全部状态";
+      state.category = "全部分类";
+      state.quick = "";
+      els.search.value = "";
     }
 
     async function checkServer() {
@@ -647,11 +826,9 @@
         if (!response.ok) throw new Error("not ready");
         els.serverStatus.textContent = "本地服务已连接";
         els.serverStatus.classList.add("on");
-        els.refreshData.disabled = false;
       } catch {
         els.serverStatus.textContent = "请用启动文件打开";
         els.serverStatus.classList.remove("on");
-        els.refreshData.disabled = false;
       }
     }
 
@@ -669,7 +846,7 @@
         els.serverStatus.textContent = "已刷新";
         els.serverStatus.classList.add("on");
       } catch {
-        alert("这个按钮需要通过“启动Skill管理台.command”打开页面后才能使用。普通双击 HTML 时，浏览器不允许网页刷新本机文件。");
+        alert("这个按钮需要通过启动脚本打开页面后才能使用。普通双击 HTML 时，浏览器不允许网页刷新本机文件。");
       } finally {
         els.refreshData.disabled = false;
         els.refreshData.textContent = oldText;
@@ -685,59 +862,21 @@
         });
         if (!response.ok) throw new Error("open failed");
       } catch {
-        alert("打开文件夹需要通过“启动Skill管理台.command”打开页面。普通双击 HTML 时，浏览器不能直接操作 Finder。");
-      }
-    }
-
-    function renderTable(skills) {
-      els.tableWrap.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>名称</th>
-              <th>用途</th>
-              <th>平台</th>
-              <th>来源</th>
-              <th>状态</th>
-              <th>分类</th>
-              <th>风险</th>
-              <th>路径</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${skills.map(skill => `
-              <tr>
-                <td><div class="table-name">${escapeHtml(skill.name)}</div><div class="muted">${escapeHtml(skill.alias || "")}</div></td>
-                <td>${escapeHtml(skill.purposeZh || skill.description || "暂无中文用途")}</td>
-                <td>${escapeHtml((skill.platforms || []).join(" / "))}</td>
-                <td>${escapeHtml(skill.sourceType)}</td>
-                <td>${escapeHtml(skill.status)}</td>
-                <td>${escapeHtml(skill.category)}</td>
-                <td>${escapeHtml(skill.risk)}</td>
-                <td><code>${escapeHtml(skill.realPath)}</code></td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `;
-    }
-
-    function render() {
-      const skills = (data.skills || []).filter(matches);
-      els.resultInfo.textContent = `当前显示 ${skills.length} 个，全部 ${data.skills?.length || 0} 个。`;
-      els.empty.classList.toggle("hidden", skills.length > 0);
-      els.cards.classList.toggle("hidden", state.view !== "card" || skills.length === 0);
-      els.tableWrap.classList.toggle("hidden", state.view !== "table" || skills.length === 0);
-      els.cardView.classList.toggle("active", state.view === "card");
-      els.tableView.classList.toggle("active", state.view === "table");
-      if (state.view === "card") {
-        els.cards.innerHTML = skills.map(renderCard).join("");
-      } else {
-        renderTable(skills);
+        alert("打开文件夹需要通过启动脚本打开页面。普通双击 HTML 时，浏览器不能直接操作本机文件管理器。");
       }
     }
 
     function bind() {
+      els.skillsMode.addEventListener("click", () => {
+        state.mode = "skills";
+        resetFilters();
+        rerenderAll();
+      });
+      els.cliMode.addEventListener("click", () => {
+        state.mode = "cli";
+        resetFilters();
+        rerenderAll();
+      });
       els.search.addEventListener("input", event => {
         state.query = event.target.value;
         render();

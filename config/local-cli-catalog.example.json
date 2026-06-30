@@ -1,0 +1,9 @@
+[
+  {
+    "command": "my-cli",
+    "alias": "我的 CLI",
+    "purpose": "用中文说明这个 CLI 做什么。",
+    "category": "自定义",
+    "versionArgs": ["--version"]
+  }
+]

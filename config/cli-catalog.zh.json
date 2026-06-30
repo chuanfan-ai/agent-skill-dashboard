@@ -1,0 +1,163 @@
+[
+  {
+    "command": "codex",
+    "alias": "Codex CLI",
+    "purpose": "启动或调用 Codex 命令行能力。",
+    "category": "智能体",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "claude",
+    "alias": "Claude Code CLI",
+    "purpose": "启动或调用 Claude Code 命令行能力。",
+    "category": "智能体",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "gh",
+    "alias": "GitHub CLI",
+    "purpose": "管理 GitHub 仓库、Issue、PR、Actions 和认证。",
+    "category": "开发协作",
+    "versionArgs": ["--version"],
+    "risk": "可能访问 GitHub 账户和远端仓库；平时不常驻内存。"
+  },
+  {
+    "command": "git",
+    "alias": "Git",
+    "purpose": "管理本地和远端代码仓库。",
+    "category": "开发协作",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "node",
+    "alias": "Node.js",
+    "purpose": "运行 JavaScript/TypeScript 工具链和本地服务。",
+    "category": "运行时",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "npm",
+    "alias": "npm",
+    "purpose": "安装、运行和管理 Node.js 包。",
+    "category": "包管理",
+    "versionArgs": ["--version"],
+    "risk": "安装包时可能访问网络和修改项目依赖；平时不常驻内存。"
+  },
+  {
+    "command": "npx",
+    "alias": "npx",
+    "purpose": "临时运行 npm 包或项目命令。",
+    "category": "包管理",
+    "versionArgs": ["--version"],
+    "risk": "运行远程包时可能访问网络和执行下载的代码。"
+  },
+  {
+    "command": "pnpm",
+    "alias": "pnpm",
+    "purpose": "安装、运行和管理 Node.js 包。",
+    "category": "包管理",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "yarn",
+    "alias": "Yarn",
+    "purpose": "安装、运行和管理 Node.js 包。",
+    "category": "包管理",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "bun",
+    "alias": "Bun",
+    "purpose": "运行 JavaScript 项目、包管理和构建任务。",
+    "category": "运行时",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "python3",
+    "alias": "Python 3",
+    "purpose": "运行 Python 脚本和本地工具。",
+    "category": "运行时",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "pip3",
+    "alias": "pip",
+    "purpose": "安装和管理 Python 包。",
+    "category": "包管理",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "uv",
+    "alias": "uv",
+    "purpose": "管理 Python 项目、虚拟环境、工具和依赖。",
+    "category": "包管理",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "uvx",
+    "alias": "uvx",
+    "purpose": "临时运行 Python 命令行工具。",
+    "category": "包管理",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "pipx",
+    "alias": "pipx",
+    "purpose": "隔离安装和运行 Python 命令行工具。",
+    "category": "包管理",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "vercel",
+    "alias": "Vercel CLI",
+    "purpose": "部署和管理 Vercel 项目。",
+    "category": "部署",
+    "versionArgs": ["--version"],
+    "risk": "可能访问 Vercel 账户并创建或更新部署。"
+  },
+  {
+    "command": "docker",
+    "alias": "Docker",
+    "purpose": "构建、运行和管理容器。",
+    "category": "开发环境",
+    "versionArgs": ["--version"],
+    "risk": "运行容器时可能持续占用 CPU、内存和磁盘。"
+  },
+  {
+    "command": "jq",
+    "alias": "jq",
+    "purpose": "处理和筛选 JSON 数据。",
+    "category": "数据处理",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "ffmpeg",
+    "alias": "FFmpeg",
+    "purpose": "处理音频、视频和转码任务。",
+    "category": "媒体处理",
+    "versionArgs": ["-version"]
+  },
+  {
+    "command": "pandoc",
+    "alias": "Pandoc",
+    "purpose": "转换 Markdown、Word、HTML、PDF 等文档格式。",
+    "category": "文档处理",
+    "versionArgs": ["--version"]
+  },
+  {
+    "command": "coze",
+    "alias": "Coze CLI",
+    "purpose": "调用 Coze 相关项目、生成、会话或文件能力。",
+    "category": "智能体",
+    "versionArgs": ["--version"],
+    "risk": "可能访问 Coze 账号、云端项目或生成服务。"
+  },
+  {
+    "command": "lark-cli",
+    "alias": "飞书 CLI",
+    "purpose": "调用飞书/Lark 相关开放平台能力。",
+    "category": "办公协作",
+    "versionArgs": ["--version"],
+    "risk": "可能访问飞书账号、文档或组织数据。"
+  }
+]

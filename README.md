@@ -1,6 +1,6 @@
 # Agent Skill Dashboard
 
-一个本地 skill 管理台，用来盘点 Codex、Claude Code、Cola、OpenClaw、Trae 等智能体工具里的 `SKILL.md`。
+一个本地 skill / CLI 管理台，用来盘点 Codex、Claude Code、Cola、OpenClaw、Trae 等智能体工具里的 `SKILL.md`，以及当前环境可调用的命令行工具。
 
 它解决的问题：
 
@@ -8,6 +8,7 @@
 - 同名 skill 可能是真重复，也可能只是平台缓存或跨平台同名。
 - 很多 skill 的英文说明不适合日常管理，需要中文别名和中文用途。
 - 只复制路径不方便定位，需要能直接打开真实文件夹。
+- CLI 和 skill 的共享机制不同，需要看命令是否在 PATH 里、来自用户全局目录还是某个智能体运行时。
 
 ## 功能
 
@@ -17,6 +18,8 @@
 - 中文别名和中文用途展示。
 - 页面内一键刷新数据。
 - 页面内直接打开真实位置所在文件夹。
+- Skill / CLI 双页面切换。
+- CLI 页面展示命令路径、版本、来源类型、共享判断和运行风险。
 - macOS、Windows、Linux 都可用。
 
 ## 快速开始
@@ -41,7 +44,7 @@ chmod +x start.sh
 ./start.sh
 ```
 
-启动后会打开浏览器。页面右上角的“刷新数据”会重新扫描本机 skill，详情里的“打开文件夹”会打开真实位置所在目录。
+启动后会打开浏览器。页面右上角的“刷新数据”会重新扫描本机 skill 和 CLI，详情里的“打开文件夹”会打开真实位置所在目录。
 
 ## 配置扫描路径
 
@@ -103,9 +106,58 @@ config/aliases.zh.json
 
 没有配置的 skill 会自动生成中文兜底别名，并用中文提示“原始说明见详情”。
 
+## CLI 目录
+
+默认 CLI 目录在：
+
+```text
+config/cli-catalog.zh.json
+```
+
+它不会全盘扫描系统命令，只会检查配置里的常见 CLI 是否在当前 `PATH` 中，例如：
+
+- `codex`
+- `claude`
+- `gh`
+- `git`
+- `node`
+- `npm`
+- `pnpm`
+- `python3`
+- `uv`
+- `vercel`
+- `docker`
+- `coze`
+
+自定义 CLI：
+
+```bash
+cp config/local-cli-catalog.example.json config/local-cli-catalog.json
+```
+
+然后编辑：
+
+```json
+[
+  {
+    "command": "my-cli",
+    "alias": "我的 CLI",
+    "purpose": "用中文说明这个 CLI 做什么。",
+    "category": "自定义",
+    "versionArgs": ["--version"]
+  }
+]
+```
+
+CLI 页面里的“共享判断”是根据路径推断的：
+
+- `~/.local/bin`、系统目录、Homebrew 等：通常可被多个智能体共享，前提是启动时带着这些 PATH。
+- Codex runtime / 插件缓存：通常不算所有智能体共享。
+- 应用自带目录：取决于应用是否安装，以及 PATH 是否暴露。
+
 ## 数据文件
 
-`skills-data.js` 是本机扫描结果，默认不提交到 GitHub。
+`skills-data.js` 是本机扫描结果，包含 skill 和 CLI 两类数据，默认不提交到 GitHub。
 
 仓库里只保留：
 
@@ -115,6 +167,7 @@ config/aliases.zh.json
 ## 安全边界
 
 - 扫描过程只读取 `SKILL.md`，不会读取 `.env`、token 或密钥文件。
+- CLI 扫描只检查配置中的命令是否在 PATH 中，并尝试读取版本号；不会全盘搜索可执行文件。
 - 页面里的“打开文件夹”只打开目录，不会删除或移动文件。
 - 清理重复 skill 前建议先归档，不要直接删除插件缓存或平台内置目录。
 

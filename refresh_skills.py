@@ -5,6 +5,8 @@ import hashlib
 import json
 import os
 import re
+import shutil
+import subprocess
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +17,8 @@ CONFIG_DIR = BASE_DIR / "config"
 DEFAULT_ROOTS_FILE = CONFIG_DIR / "default-roots.json"
 LOCAL_ROOTS_FILE = CONFIG_DIR / "local-roots.json"
 ALIASES_FILE = CONFIG_DIR / "aliases.zh.json"
+CLI_CATALOG_FILE = CONFIG_DIR / "cli-catalog.zh.json"
+LOCAL_CLI_CATALOG_FILE = CONFIG_DIR / "local-cli-catalog.json"
 OUTPUT_FILE = BASE_DIR / "skills-data.js"
 
 PLATFORM_ORDER = [
@@ -116,6 +120,12 @@ def load_aliases() -> dict:
     return read_json(ALIASES_FILE, {})
 
 
+def load_cli_catalog() -> list[dict]:
+    catalog = read_json(CLI_CATALOG_FILE, [])
+    local = read_json(LOCAL_CLI_CATALOG_FILE, [])
+    return catalog + local
+
+
 def walk_skill_files(root: Path, max_depth: int) -> list[Path]:
     if not root.exists():
         return []
@@ -214,6 +224,118 @@ def infer_risk(name: str, description: str, platforms: list[str]) -> str:
     if not risks and ("Codex 插件缓存" in platforms or "Cola 内置" in platforms):
         risks.append("按平台权限与登录状态执行")
     return "；".join(risks) if risks else "低风险：主要是本地说明与流程触发"
+
+
+def cli_source_type(path: str) -> str:
+    normalized = path.replace("\\", "/")
+    home = str(Path.home()).replace("\\", "/")
+    if normalized.startswith(f"{home}/.local/bin/"):
+        return "用户全局"
+    if "/.cache/codex-runtimes/" in normalized or "/codex-primary-runtime/" in normalized:
+        return "Codex 运行时"
+    if normalized.startswith("/Applications/") or "/Contents/Resources/" in normalized:
+        return "应用自带"
+    if normalized.startswith("/usr/bin/") or normalized.startswith("/bin/") or normalized.startswith("/usr/sbin/"):
+        return "系统内置"
+    if normalized.startswith("/opt/homebrew/bin/") or normalized.startswith("/usr/local/bin/"):
+        return "包管理器"
+    if "AppData/" in normalized or "/Programs/" in normalized:
+        return "用户应用"
+    return "PATH 可见"
+
+
+def cli_shared_scope(source_type: str) -> str:
+    if source_type in {"用户全局", "系统内置", "包管理器"}:
+        return "通常可被多个智能体共享，前提是启动环境包含该 PATH。"
+    if source_type == "Codex 运行时":
+        return "主要由 Codex 当前运行时提供，其他智能体不一定能看到。"
+    if source_type in {"应用自带", "用户应用"}:
+        return "随应用安装，其他智能体能否调用取决于 PATH 和应用是否存在。"
+    return "取决于当前 PATH 配置。"
+
+
+def which_all(command: str) -> list[str]:
+    seen = set()
+    results = []
+    for raw_dir in os.environ.get("PATH", "").split(os.pathsep):
+        if not raw_dir:
+            continue
+        base = Path(raw_dir).expanduser()
+        candidates = [base / command]
+        if os.name == "nt":
+            pathext = os.environ.get("PATHEXT", ".EXE;.BAT;.CMD;.COM").split(";")
+            candidates.extend(base / f"{command}{ext.lower()}" for ext in pathext)
+            candidates.extend(base / f"{command}{ext.upper()}" for ext in pathext)
+        for candidate in candidates:
+            try:
+                resolved = str(candidate.resolve())
+            except OSError:
+                resolved = str(candidate)
+            if candidate.exists() and os.access(candidate, os.X_OK) and resolved not in seen:
+                seen.add(resolved)
+                results.append(str(candidate))
+    return results
+
+
+def read_version(path: str, version_args: list[str]) -> str:
+    if not version_args:
+        return ""
+    try:
+        result = subprocess.run(
+            [path, *version_args],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=4,
+            check=False,
+        )
+    except Exception:
+        return ""
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    return " / ".join(lines[:2])[:240]
+
+
+def collect_clis() -> tuple[dict, list[dict]]:
+    catalog = load_cli_catalog()
+    items = []
+    for entry in catalog:
+        command = entry["command"]
+        paths = which_all(command)
+        primary = shutil.which(command) or (paths[0] if paths else "")
+        all_paths = paths or ([primary] if primary else [])
+        source_type = cli_source_type(primary) if primary else "未找到"
+        version = read_version(primary, entry.get("versionArgs", ["--version"])) if primary else ""
+        item = {
+            "id": re.sub(r"[^a-zA-Z0-9_-]+", "-", command).strip("-"),
+            "command": command,
+            "alias": entry.get("alias") or auto_alias(command),
+            "purposeZh": entry.get("purpose") or f"用于{entry.get('alias') or auto_alias(command)}相关命令行任务。",
+            "category": entry.get("category") or "其他",
+            "status": "可用" if primary else "未找到",
+            "sourceType": source_type,
+            "sharedScope": cli_shared_scope(source_type),
+            "primaryPath": primary,
+            "allPaths": all_paths,
+            "version": version,
+            "risk": entry.get("risk") or "平时不占内存；只有运行命令时才会占用进程资源。",
+            "notes": entry.get("notes", ""),
+        }
+        items.append(item)
+    items.sort(key=lambda item: (item["status"] != "可用", item["sourceType"], item["command"]))
+    status_counts = Counter(item["status"] for item in items)
+    source_counts = Counter(item["sourceType"] for item in items)
+    category_counts = Counter(item["category"] for item in items)
+    shared_count = sum(1 for item in items if item["sourceType"] in {"用户全局", "系统内置", "包管理器"})
+    summary = {
+        "totalCommands": len(items),
+        "availableCommands": status_counts.get("可用", 0),
+        "missingCommands": status_counts.get("未找到", 0),
+        "sharedLikeCommands": shared_count,
+        "statusCounts": dict(status_counts),
+        "sourceCounts": dict(source_counts),
+        "categoryCounts": dict(category_counts),
+    }
+    return summary, items
 
 
 def choose_source_type(real_path: str, source_types: list[str]) -> str:
@@ -333,6 +455,7 @@ def collect() -> dict:
         name for name, status in duplicate_status_by_name.items() if status == "重复"
     )
 
+    cli_summary, clis = collect_clis()
     return {
         "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "summary": {
@@ -348,6 +471,8 @@ def collect() -> dict:
             "actionableDuplicateNames": actionable_duplicate_names,
         },
         "skills": items,
+        "cliSummary": cli_summary,
+        "clis": clis,
     }
 
 
