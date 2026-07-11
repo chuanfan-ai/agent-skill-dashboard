@@ -1,0 +1,37 @@
+[
+  {
+    "id": "paddleocr-local",
+    "name": "PaddleOCR",
+    "alias": "本地 OCR 识别",
+    "type": "Python 工具 + 模型",
+    "category": "OCR/视觉",
+    "purpose": "识别图片、PDF 截图、扫描件和票据中的文字。",
+    "sourceType": "本机配置",
+    "paths": [
+      {
+        "label": "模型目录",
+        "path": "~/.paddlex/official_models"
+      },
+      {
+        "label": "虚拟环境",
+        "path": "~/my-project/.venv"
+      }
+    ],
+    "packages": [
+      "paddleocr",
+      "paddlepaddle"
+    ],
+    "versions": {
+      "paddleocr": "3.7.0",
+      "paddlepaddle": "3.3.1"
+    },
+    "commands": [
+      "paddleocr"
+    ],
+    "sharedScope": "可被多个智能体共享，前提是智能体知道虚拟环境 Python 路径和模型目录。",
+    "risk": "模型文件只占磁盘；运行 OCR 时会占用 CPU/GPU、内存和磁盘读取。",
+    "callExamples": [
+      "python -m paddleocr --help"
+    ]
+  }
+]

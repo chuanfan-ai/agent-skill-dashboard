@@ -19,6 +19,7 @@ LOCAL_ROOTS_FILE = CONFIG_DIR / "local-roots.json"
 ALIASES_FILE = CONFIG_DIR / "aliases.zh.json"
 CLI_CATALOG_FILE = CONFIG_DIR / "cli-catalog.zh.json"
 LOCAL_CLI_CATALOG_FILE = CONFIG_DIR / "local-cli-catalog.json"
+LOCAL_TOOLS_FILE = CONFIG_DIR / "local-tools.json"
 OUTPUT_FILE = BASE_DIR / "skills-data.js"
 
 PLATFORM_ORDER = [
@@ -338,6 +339,390 @@ def collect_clis() -> tuple[dict, list[dict]]:
     return summary, items
 
 
+LOCAL_TOOL_DEFAULTS = [
+    {
+        "id": "paddlex-official-models",
+        "name": "PaddleX / PaddleOCR 模型库",
+        "alias": "Paddle 本地模型库",
+        "type": "模型目录",
+        "category": "OCR/视觉",
+        "purpose": "存放 PaddleX、PaddleOCR 自动下载的官方模型，可供 OCR、版面分析和文档识别任务复用。",
+        "sourceType": "自动发现",
+        "paths": [{"label": "默认模型目录", "path": "~/.paddlex/official_models"}],
+        "sharedScope": "可被多个智能体共享，前提是智能体知道模型路径并能调用对应 Python 环境。",
+        "risk": "模型文件不常驻内存；运行 OCR 时会占用 CPU/GPU、内存和磁盘读取。",
+    },
+    {
+        "id": "ollama-models",
+        "name": "Ollama 模型库",
+        "alias": "Ollama 本地模型",
+        "type": "模型目录",
+        "category": "本地大模型",
+        "purpose": "存放 Ollama 下载的本地大模型。",
+        "sourceType": "自动发现",
+        "paths": [{"label": "默认模型目录", "path": "~/.ollama/models"}],
+        "commands": ["ollama"],
+        "sharedScope": "Ollama 服务启动后通常可被多个智能体共享；模型文件本身只占磁盘。",
+        "risk": "运行模型时可能持续占用大量内存、显存和 CPU/GPU。",
+    },
+    {
+        "id": "huggingface-cache",
+        "name": "Hugging Face 缓存",
+        "alias": "Hugging Face 模型缓存",
+        "type": "模型缓存",
+        "category": "本地大模型",
+        "purpose": "存放 transformers、diffusers 等工具下载的模型和数据缓存。",
+        "sourceType": "自动发现",
+        "paths": [{"label": "默认缓存目录", "path": "~/.cache/huggingface"}],
+        "sharedScope": "可被 Python 工具和多个智能体复用，前提是使用同一用户目录。",
+        "risk": "缓存本身不占内存；加载模型时才会占用计算资源。",
+    },
+    {
+        "id": "whisper-cache",
+        "name": "Whisper 模型缓存",
+        "alias": "Whisper 转写模型",
+        "type": "模型缓存",
+        "category": "语音/转写",
+        "purpose": "存放 Whisper 语音转文字模型缓存。",
+        "sourceType": "自动发现",
+        "paths": [{"label": "默认缓存目录", "path": "~/.cache/whisper"}],
+        "sharedScope": "可被多个本地转写脚本复用。",
+        "risk": "转写时会占用 CPU/GPU 和内存；模型文件本身只占磁盘。",
+    },
+    {
+        "id": "pipx-venvs",
+        "name": "pipx 工具环境",
+        "alias": "pipx 隔离工具",
+        "type": "Python 工具环境",
+        "category": "Python 工具",
+        "purpose": "存放 pipx 安装的隔离命令行工具。",
+        "sourceType": "自动发现",
+        "paths": [
+            {"label": "macOS/Linux 默认目录", "path": "~/.local/pipx/venvs"},
+            {"label": "Windows 默认目录", "path": "%USERPROFILE%\\pipx\\venvs"}
+        ],
+        "commands": ["pipx"],
+        "sharedScope": "通常可被多个智能体共享，前提是 pipx bin 目录在 PATH 中。",
+        "risk": "工具平时不占内存；运行时才占用资源。",
+    },
+    {
+        "id": "uv-tools",
+        "name": "uv 工具环境",
+        "alias": "uv Python 工具",
+        "type": "Python 工具环境",
+        "category": "Python 工具",
+        "purpose": "存放 uv tool 安装的 Python 命令行工具。",
+        "sourceType": "自动发现",
+        "paths": [
+            {"label": "macOS/Linux 默认目录", "path": "~/.local/share/uv/tools"},
+            {"label": "Windows 默认目录", "path": "%APPDATA%\\uv\\tools"}
+        ],
+        "commands": ["uv"],
+        "sharedScope": "通常可被多个智能体共享，前提是 uv 工具目录在 PATH 中。",
+        "risk": "工具平时不占内存；运行时才占用资源。",
+    },
+]
+
+VENV_SCAN_ROOTS = [
+    "~/.venvs",
+    "~/.virtualenvs",
+    "~/.agents/venvs",
+    "~/Documents",
+    "~/智能体文件存放区",
+]
+
+SCAN_SKIP_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    "node_modules",
+    "Library",
+    "Applications",
+    "Downloads",
+    "Desktop",
+    "Pictures",
+    "Music",
+    "Movies",
+    ".Trash",
+    "__pycache__",
+}
+
+
+def load_local_tools() -> list[dict]:
+    return read_json(LOCAL_TOOLS_FILE, [])
+
+
+def slug(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_-]+", "-", value).strip("-").lower()
+
+
+def format_bytes(size: int) -> str:
+    units = ["B", "K", "M", "G", "T"]
+    value = float(size)
+    for unit in units:
+        if value < 1024 or unit == units[-1]:
+            return f"{value:.1f}{unit}" if unit != "B" else f"{int(value)}B"
+        value /= 1024
+    return f"{size}B"
+
+
+def safe_path_size(path: Path, max_files: int = 20000) -> tuple[int, bool]:
+    try:
+        if path.is_file():
+            return path.stat().st_size, False
+    except OSError:
+        return 0, False
+    total = 0
+    truncated = False
+    seen_files = 0
+    for dirpath, dirnames, filenames in os.walk(path, followlinks=False):
+        dirnames[:] = [name for name in dirnames if name not in SCAN_SKIP_DIRS]
+        for filename in filenames:
+            seen_files += 1
+            if seen_files > max_files:
+                truncated = True
+                return total, truncated
+            try:
+                total += (Path(dirpath) / filename).stat().st_size
+            except OSError:
+                continue
+    return total, truncated
+
+
+def should_skip_platform_path(raw_path: str) -> bool:
+    if "%APPDATA%" in raw_path and not os.environ.get("APPDATA"):
+        return True
+    if "%USERPROFILE%" in raw_path and os.name != "nt":
+        return True
+    return False
+
+
+def normalize_tool_paths(raw_paths) -> list[dict]:
+    normalized = []
+    for item in raw_paths or []:
+        if isinstance(item, str):
+            if should_skip_platform_path(item):
+                continue
+            normalized.append({"label": "路径", "path": item})
+        elif isinstance(item, dict) and item.get("path"):
+            raw_path = item["path"]
+            if should_skip_platform_path(raw_path):
+                continue
+            normalized.append({"label": item.get("label") or "路径", "path": raw_path})
+    return normalized
+
+
+def merge_tool_entries(entries: list[dict]) -> list[dict]:
+    merged: dict[str, dict] = {}
+    for entry in entries:
+        name = entry.get("name") or entry.get("id") or "local-tool"
+        tool_id = entry.get("id") or slug(name)
+        current = merged.setdefault(tool_id, {"id": tool_id})
+        for key, value in entry.items():
+            if key in {"paths", "commands", "packages", "callExamples"}:
+                existing = current.get(key, [])
+                current[key] = existing + (value or [])
+            elif key == "versions":
+                versions = dict(current.get("versions", {}))
+                versions.update(value or {})
+                current[key] = versions
+            else:
+                current[key] = value
+    return list(merged.values())
+
+
+def read_declared_or_current_package_versions(packages: list[str], declared: dict) -> dict:
+    versions = {}
+    try:
+        from importlib import metadata
+    except Exception:
+        metadata = None
+    for package in packages or []:
+        if package in declared:
+            versions[package] = declared[package]
+            continue
+        if not metadata:
+            continue
+        try:
+            versions[package] = metadata.version(package)
+        except Exception:
+            continue
+    return versions
+
+
+def command_version(command: str) -> str:
+    primary = shutil.which(command)
+    if not primary:
+        return ""
+    for args in (["--version"], ["-V"], ["version"]):
+        version = read_version(primary, args)
+        if version:
+            return version
+    return ""
+
+
+def latest_mtime(paths: list[Path]) -> str:
+    mtimes = []
+    for path in paths:
+        try:
+            mtimes.append(path.stat().st_mtime)
+        except OSError:
+            continue
+    return datetime.fromtimestamp(max(mtimes)).strftime("%Y-%m-%d %H:%M") if mtimes else ""
+
+
+def build_local_tool(entry: dict) -> dict:
+    raw_paths = normalize_tool_paths(entry.get("paths"))
+    path_rows = []
+    existing_paths = []
+    total_size = 0
+    truncated_size = False
+    for row in raw_paths:
+        expanded = expand_path(row["path"])
+        exists = expanded.exists()
+        size = 0
+        truncated = False
+        if exists:
+            existing_paths.append(expanded)
+            size, truncated = safe_path_size(expanded)
+            total_size += size
+            truncated_size = truncated_size or truncated
+        path_rows.append({
+            "label": row["label"],
+            "path": str(expanded),
+            "exists": exists,
+            "sizeText": format_bytes(size) if exists and size else "",
+        })
+
+    commands = entry.get("commands", []) or []
+    command_rows = []
+    for command in commands:
+        paths = which_all(command)
+        command_rows.append({
+            "command": command,
+            "status": "可用" if paths else "未找到",
+            "primaryPath": shutil.which(command) or (paths[0] if paths else ""),
+            "version": command_version(command),
+        })
+
+    packages = entry.get("packages", []) or []
+    package_versions = read_declared_or_current_package_versions(packages, entry.get("versions", {}) or {})
+    has_package_info = bool(package_versions)
+    has_command = any(row["status"] == "可用" for row in command_rows)
+    has_path = bool(existing_paths)
+    status = "可用" if has_path or has_command or has_package_info else entry.get("status", "未找到")
+    size_text = entry.get("sizeText") or (format_bytes(total_size) + ("+" if truncated_size else "") if total_size else "")
+    version_parts = [f"{name} {version}" for name, version in package_versions.items()]
+    version_parts.extend(row["version"] for row in command_rows if row.get("version"))
+    tool_id = entry.get("id") or slug(entry.get("name", "local-tool"))
+    primary_path = next((row["path"] for row in path_rows if row["exists"]), "")
+    return {
+        "id": tool_id,
+        "name": entry.get("name") or tool_id,
+        "alias": entry.get("alias") or auto_alias(entry.get("name") or tool_id),
+        "type": entry.get("type") or "本地工具",
+        "category": entry.get("category") or "其他",
+        "purposeZh": entry.get("purpose") or f"用于{entry.get('alias') or auto_alias(entry.get('name') or tool_id)}相关本地任务。",
+        "status": status,
+        "sourceType": entry.get("sourceType") or "本机配置",
+        "sharedScope": entry.get("sharedScope") or "可被多个智能体共享，前提是智能体知道路径、命令或运行环境。",
+        "paths": path_rows,
+        "commands": command_rows,
+        "packages": [{"name": name, "version": package_versions.get(name, "")} for name in packages],
+        "version": " / ".join(dict.fromkeys(part for part in version_parts if part))[:300],
+        "sizeText": size_text,
+        "primaryPath": primary_path,
+        "risk": entry.get("risk") or "平时通常只占磁盘；运行时才占用 CPU、内存或显存。",
+        "callExamples": entry.get("callExamples", []) or [],
+        "notes": entry.get("notes", ""),
+        "updatedAt": latest_mtime(existing_paths),
+    }
+
+
+def find_pyvenv_files(root: Path, max_depth: int = 6, max_dirs: int = 5000) -> list[Path]:
+    if not root.exists():
+        return []
+    found = []
+    visited = 0
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        visited += 1
+        if visited > max_dirs:
+            break
+        current = Path(dirpath)
+        try:
+            depth = len(current.relative_to(root).parts)
+        except ValueError:
+            depth = 0
+        if depth > max_depth:
+            dirnames[:] = []
+            continue
+        dirnames[:] = [name for name in dirnames if name not in SCAN_SKIP_DIRS]
+        if "pyvenv.cfg" in filenames:
+            found.append(current / "pyvenv.cfg")
+            dirnames[:] = []
+    return found
+
+
+def python_bin_for_venv(venv: Path) -> Path:
+    if os.name == "nt":
+        return venv / "Scripts" / "python.exe"
+    return venv / "bin" / "python"
+
+
+def scan_python_venvs() -> list[dict]:
+    roots = list(VENV_SCAN_ROOTS)
+    extra = os.environ.get("AGENT_TOOL_SCAN_ROOTS", "")
+    roots.extend(path for path in extra.split(os.pathsep) if path)
+    entries = []
+    seen = set()
+    for raw_root in roots:
+        root = expand_path(raw_root)
+        for cfg in find_pyvenv_files(root):
+            venv = cfg.parent
+            real = str(venv.resolve())
+            if real in seen:
+                continue
+            seen.add(real)
+            py = python_bin_for_venv(venv)
+            entries.append({
+                "id": f"python-venv-{hashlib.sha1(real.encode('utf-8')).hexdigest()[:10]}",
+                "name": f"Python 虚拟环境：{venv.name}",
+                "alias": f"{venv.parent.name} Python 环境" if venv.name == ".venv" else f"{venv.name} Python 环境",
+                "type": "Python 虚拟环境",
+                "category": "Python 工具",
+                "purpose": "本机 Python 虚拟环境，可供脚本、模型工具或智能体任务调用。",
+                "sourceType": "自动发现",
+                "paths": [{"label": "虚拟环境", "path": str(venv)}, {"label": "Python 解释器", "path": str(py)}],
+                "commands": [],
+                "packages": [],
+                "versions": {},
+                "sharedScope": "可被多个智能体共享，前提是智能体知道 Python 解释器路径并允许调用。",
+                "risk": "环境本身不常驻内存；运行其中的脚本时才占用资源。",
+                "notes": "自动发现自 pyvenv.cfg。",
+            })
+    return entries
+
+
+def collect_local_tools() -> tuple[dict, list[dict]]:
+    entries = merge_tool_entries(LOCAL_TOOL_DEFAULTS + load_local_tools() + scan_python_venvs())
+    items = [build_local_tool(entry) for entry in entries]
+    items.sort(key=lambda item: (item["status"] != "可用", item["category"], item["alias"], item["name"]))
+    status_counts = Counter(item["status"] for item in items)
+    source_counts = Counter(item["sourceType"] for item in items)
+    category_counts = Counter(item["category"] for item in items)
+    available = status_counts.get("可用", 0)
+    summary = {
+        "totalTools": len(items),
+        "availableTools": available,
+        "missingTools": len(items) - available,
+        "modelOrEnvTools": sum(1 for item in items if any(word in item["type"] for word in ["模型", "环境", "缓存"])),
+        "statusCounts": dict(status_counts),
+        "sourceCounts": dict(source_counts),
+        "categoryCounts": dict(category_counts),
+    }
+    return summary, items
+
+
 def choose_source_type(real_path: str, source_types: list[str]) -> str:
     normalized_path = real_path.replace("\\", "/")
     if "/.codex/skills/.system/" in normalized_path:
@@ -456,6 +841,7 @@ def collect() -> dict:
     )
 
     cli_summary, clis = collect_clis()
+    tool_summary, local_tools = collect_local_tools()
     return {
         "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "summary": {
@@ -473,6 +859,8 @@ def collect() -> dict:
         "skills": items,
         "cliSummary": cli_summary,
         "clis": clis,
+        "toolSummary": tool_summary,
+        "localTools": local_tools,
     }
 
 

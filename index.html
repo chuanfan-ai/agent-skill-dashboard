@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Skill 管理台</title>
+  <title>本机智能体能力管理台</title>
   <style>
     :root {
       color-scheme: light;
@@ -440,8 +440,8 @@
       <div class="header-inner">
         <div class="topline">
           <div>
-            <h1>Skill 管理台</h1>
-            <div class="sub">集中查看本机 Codex、Claude Code、Cola、OpenClaw、Trae 等平台接入的 skill。</div>
+            <h1>本机智能体能力管理台</h1>
+            <div class="sub">集中查看本机 Skill、CLI、本地工具、模型和 Python 环境。</div>
           </div>
           <div>
             <div class="updated" id="updated"></div>
@@ -455,6 +455,7 @@
         <nav class="mode-tabs" aria-label="页面切换">
           <button id="skillsMode" class="mode-tab active" type="button">Skill</button>
           <button id="cliMode" class="mode-tab" type="button">CLI</button>
+          <button id="toolsMode" class="mode-tab" type="button">本地工具</button>
         </nav>
       </div>
     </header>
@@ -477,14 +478,14 @@
         <div id="resultInfo" class="muted"></div>
         <div id="cards" class="cards"></div>
         <div id="tableWrap" class="table-wrap hidden"></div>
-        <div id="empty" class="empty hidden">没有匹配的 skill。</div>
+        <div id="empty" class="empty hidden">没有匹配的项目。</div>
       </section>
     </main>
   </div>
 
   <script src="./skills-data.js"></script>
   <script>
-    let data = window.SKILL_DATA || { summary: {}, skills: [], cliSummary: {}, clis: [] };
+    let data = window.SKILL_DATA || { summary: {}, skills: [], cliSummary: {}, clis: [], toolSummary: {}, localTools: [] };
     const state = {
       mode: "skills",
       query: "",
@@ -501,6 +502,7 @@
       metrics: document.getElementById("metrics"),
       skillsMode: document.getElementById("skillsMode"),
       cliMode: document.getElementById("cliMode"),
+      toolsMode: document.getElementById("toolsMode"),
       search: document.getElementById("search"),
       platform: document.getElementById("platformFilter"),
       source: document.getElementById("sourceFilter"),
@@ -543,7 +545,9 @@
     }
 
     function currentItems() {
-      return state.mode === "skills" ? (data.skills || []) : (data.clis || []);
+      if (state.mode === "skills") return data.skills || [];
+      if (state.mode === "cli") return data.clis || [];
+      return data.localTools || [];
     }
 
     function itemFields(item) {
@@ -562,23 +566,47 @@
           ...(item.entryPaths || [])
         ];
       }
+      if (state.mode === "cli") {
+        return [
+          item.command,
+          item.alias,
+          item.purposeZh,
+          item.category,
+          item.sourceType,
+          item.status,
+          item.sharedScope,
+          item.version,
+          item.primaryPath,
+          item.risk,
+          ...(item.allPaths || [])
+        ];
+      }
       return [
-        item.command,
+        item.name,
         item.alias,
+        item.type,
         item.purposeZh,
         item.category,
         item.sourceType,
         item.status,
         item.sharedScope,
         item.version,
+        item.sizeText,
         item.primaryPath,
         item.risk,
-        ...(item.allPaths || [])
+        ...(item.paths || []).map(row => `${row.label} ${row.path}`),
+        ...(item.commands || []).map(row => `${row.command} ${row.primaryPath}`),
+        ...(item.packages || []).map(row => `${row.name} ${row.version}`),
+        ...(item.callExamples || [])
       ];
     }
 
     function renderMetrics() {
-      const summary = state.mode === "skills" ? (data.summary || {}) : (data.cliSummary || {});
+      const summary = state.mode === "skills"
+        ? (data.summary || {})
+        : state.mode === "cli"
+          ? (data.cliSummary || {})
+          : (data.toolSummary || {});
       const metrics = state.mode === "skills"
         ? [
           ["可用文件", summary.activeFiles ?? 0],
@@ -587,13 +615,21 @@
           ["需处理重复", summary.duplicateNames ?? 0],
           ["总入口文件", summary.totalFiles ?? 0]
         ]
-        : [
-          ["可用 CLI", summary.availableCommands ?? 0],
-          ["共享倾向", summary.sharedLikeCommands ?? 0],
-          ["未找到", summary.missingCommands ?? 0],
-          ["来源类型", Object.keys(summary.sourceCounts || {}).length],
-          ["配置命令", summary.totalCommands ?? 0]
-        ];
+        : state.mode === "cli"
+          ? [
+            ["可用 CLI", summary.availableCommands ?? 0],
+            ["共享倾向", summary.sharedLikeCommands ?? 0],
+            ["未找到", summary.missingCommands ?? 0],
+            ["来源类型", Object.keys(summary.sourceCounts || {}).length],
+            ["配置命令", summary.totalCommands ?? 0]
+          ]
+          : [
+            ["可用工具", summary.availableTools ?? 0],
+            ["模型/环境", summary.modelOrEnvTools ?? 0],
+            ["未找到", summary.missingTools ?? 0],
+            ["来源类型", Object.keys(summary.sourceCounts || {}).length],
+            ["登记项目", summary.totalTools ?? 0]
+          ];
       els.metrics.innerHTML = metrics.map(([label, value]) => `
         <div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>
       `).join("");
@@ -605,16 +641,13 @@
       if (state.mode === "skills") {
         fillSelect(els.platform, "全部平台", unique(items.flatMap(item => item.platforms || [])));
         els.platform.disabled = false;
-        fillSelect(els.source, "全部来源", unique(items.map(item => item.sourceType)));
-        fillSelect(els.status, "全部状态", unique(items.map(item => item.status)));
-        fillSelect(els.category, "全部分类", unique(items.map(item => item.category)));
       } else {
         fillSelect(els.platform, "全部平台", []);
         els.platform.disabled = true;
-        fillSelect(els.source, "全部来源", unique(items.map(item => item.sourceType)));
-        fillSelect(els.status, "全部状态", unique(items.map(item => item.status)));
-        fillSelect(els.category, "全部分类", unique(items.map(item => item.category)));
       }
+      fillSelect(els.source, "全部来源", unique(items.map(item => item.sourceType)));
+      fillSelect(els.status, "全部状态", unique(items.map(item => item.status)));
+      fillSelect(els.category, "全部分类", unique(items.map(item => item.category)));
       const quicks = state.mode === "skills"
         ? [
           ["个人核心", "个人共享"],
@@ -624,14 +657,23 @@
           ["重复", "重复"],
           ["候选", "候选未安装"]
         ]
-        : [
-          ["用户全局", "用户全局"],
-          ["系统共享", "系统内置"],
-          ["Codex 运行时", "Codex 运行时"],
-          ["未找到", "未找到"],
-          ["包管理", "包管理"],
-          ["智能体", "智能体"]
-        ];
+        : state.mode === "cli"
+          ? [
+            ["用户全局", "用户全局"],
+            ["系统共享", "系统内置"],
+            ["Codex 运行时", "Codex 运行时"],
+            ["未找到", "未找到"],
+            ["包管理", "包管理"],
+            ["智能体", "智能体"]
+          ]
+          : [
+            ["模型", "模型"],
+            ["Python", "Python"],
+            ["OCR", "OCR"],
+            ["自动发现", "自动发现"],
+            ["本机配置", "本机配置"],
+            ["未找到", "未找到"]
+          ];
       els.quickFilters.innerHTML = quicks.map(([label, value]) => `
         <button class="chip" type="button" data-quick="${escapeHtml(value)}">${escapeHtml(label)}</button>
       `).join("");
@@ -741,9 +783,60 @@
       `;
     }
 
+
+    function renderToolCard(tool) {
+      const paths = tool.paths || [];
+      const commands = tool.commands || [];
+      const packages = tool.packages || [];
+      const examples = tool.callExamples || [];
+      return `
+        <article class="card">
+          <div class="card-head">
+            <div class="name">
+              <strong>${escapeHtml(tool.name)}</strong>
+              <div class="alias">${escapeHtml(tool.alias || "未设置中文别名")}</div>
+            </div>
+            <span class="${tagClass(tool.status)}">${escapeHtml(tool.status)}</span>
+          </div>
+          <div class="meta">
+            <span class="tag source">${escapeHtml(tool.sourceType)}</span>
+            <span class="tag neutral">${escapeHtml(tool.category)}</span>
+            <span class="tag neutral">${escapeHtml(tool.type)}</span>
+          </div>
+          <p class="desc">${escapeHtml(tool.purposeZh || "暂无中文用途")}</p>
+          <details>
+            <summary>详情</summary>
+            <p><strong>共享判断：</strong>${escapeHtml(tool.sharedScope)}</p>
+            <p><strong>版本：</strong>${escapeHtml(tool.version || "未识别")}</p>
+            <p><strong>占用空间：</strong>${escapeHtml(tool.sizeText || "未统计")}</p>
+            <p><strong>风险提示：</strong>${escapeHtml(tool.risk)}</p>
+            ${paths.length ? `<p><strong>路径：</strong></p>${paths.map(row => `
+              <div class="path">
+                <code>${escapeHtml(row.label)}：${escapeHtml(row.path)}${row.exists ? "" : "（不存在）"}${row.sizeText ? ` · ${escapeHtml(row.sizeText)}` : ""}</code>
+                ${row.exists ? `<button class="copy" type="button" data-open="${escapeHtml(row.path)}">打开文件夹</button>` : ""}
+                <button class="copy" type="button" data-copy="${escapeHtml(row.path)}">复制路径</button>
+              </div>
+            `).join("")}` : ""}
+            ${commands.length ? `<p><strong>命令：</strong></p>${commands.map(row => `
+              <div class="path">
+                <code>${escapeHtml(row.command)}：${escapeHtml(row.primaryPath || row.status)}</code>
+                ${row.primaryPath ? `<button class="copy" type="button" data-open="${escapeHtml(row.primaryPath)}">打开文件夹</button>
+                <button class="copy" type="button" data-copy="${escapeHtml(row.primaryPath)}">复制路径</button>` : ""}
+              </div>
+            `).join("")}` : ""}
+            ${packages.length ? `<p><strong>Python 包：</strong>${escapeHtml(packages.map(row => `${row.name}${row.version ? ` ${row.version}` : ""}`).join(" / "))}</p>` : ""}
+            ${examples.length ? `<p><strong>调用示例：</strong></p>${examples.map(example => `<div class="path"><code>${escapeHtml(example)}</code><button class="copy" type="button" data-copy="${escapeHtml(example)}">复制</button></div>`).join("")}` : ""}
+            ${tool.notes ? `<p><strong>备注：</strong>${escapeHtml(tool.notes)}</p>` : ""}
+            ${tool.updatedAt ? `<p><strong>更新时间：</strong>${escapeHtml(tool.updatedAt)}</p>` : ""}
+          </details>
+        </article>
+      `;
+    }
+
     function renderTable(items) {
-      const rows = state.mode === "skills"
-        ? items.map(skill => `
+      let rows;
+      if (state.mode === "skills") {
+        rows = items.map(skill => `
           <tr>
             <td><div class="table-name">${escapeHtml(skill.name)}</div><div class="muted">${escapeHtml(skill.alias || "")}</div></td>
             <td>${escapeHtml(skill.purposeZh || skill.description || "暂无中文用途")}</td>
@@ -754,8 +847,9 @@
             <td>${escapeHtml(skill.risk)}</td>
             <td><code>${escapeHtml(skill.realPath)}</code></td>
           </tr>
-        `).join("")
-        : items.map(cli => `
+        `).join("");
+      } else if (state.mode === "cli") {
+        rows = items.map(cli => `
           <tr>
             <td><div class="table-name">${escapeHtml(cli.command)}</div><div class="muted">${escapeHtml(cli.alias || "")}</div></td>
             <td>${escapeHtml(cli.purposeZh || "")}</td>
@@ -767,6 +861,20 @@
             <td><code>${escapeHtml(cli.primaryPath || "未找到")}</code></td>
           </tr>
         `).join("");
+      } else {
+        rows = items.map(tool => `
+          <tr>
+            <td><div class="table-name">${escapeHtml(tool.name)}</div><div class="muted">${escapeHtml(tool.alias || "")}</div></td>
+            <td>${escapeHtml(tool.purposeZh || "")}</td>
+            <td>${escapeHtml(tool.sharedScope || "")}</td>
+            <td>${escapeHtml(tool.sourceType)}</td>
+            <td>${escapeHtml(tool.status)}</td>
+            <td>${escapeHtml(tool.category)}</td>
+            <td>${escapeHtml(tool.version || tool.sizeText || "未识别")}</td>
+            <td><code>${escapeHtml(tool.primaryPath || (tool.paths || [])[0]?.path || "未找到")}</code></td>
+          </tr>
+        `).join("");
+      }
       els.tableWrap.innerHTML = `
         <table>
           <thead>
@@ -777,7 +885,7 @@
               <th>来源</th>
               <th>状态</th>
               <th>分类</th>
-              <th>${state.mode === "skills" ? "风险" : "版本"}</th>
+              <th>${state.mode === "skills" ? "风险" : "版本/大小"}</th>
               <th>路径</th>
             </tr>
           </thead>
@@ -788,7 +896,7 @@
 
     function render() {
       const items = currentItems().filter(matches);
-      const label = state.mode === "skills" ? "skill" : "CLI";
+      const label = state.mode === "skills" ? "skill" : state.mode === "cli" ? "CLI" : "本地工具";
       els.resultInfo.textContent = `当前显示 ${items.length} 个 ${label}，全部 ${currentItems().length} 个。`;
       els.empty.classList.toggle("hidden", items.length > 0);
       els.cards.classList.toggle("hidden", state.view !== "card" || items.length === 0);
@@ -797,8 +905,13 @@
       els.tableView.classList.toggle("active", state.view === "table");
       els.skillsMode.classList.toggle("active", state.mode === "skills");
       els.cliMode.classList.toggle("active", state.mode === "cli");
+      els.toolsMode.classList.toggle("active", state.mode === "tools");
       if (state.view === "card") {
-        els.cards.innerHTML = items.map(item => state.mode === "skills" ? renderSkillCard(item) : renderCliCard(item)).join("");
+        els.cards.innerHTML = items.map(item => {
+          if (state.mode === "skills") return renderSkillCard(item);
+          if (state.mode === "cli") return renderCliCard(item);
+          return renderToolCard(item);
+        }).join("");
       } else {
         renderTable(items);
       }
@@ -874,6 +987,11 @@
       });
       els.cliMode.addEventListener("click", () => {
         state.mode = "cli";
+        resetFilters();
+        rerenderAll();
+      });
+      els.toolsMode.addEventListener("click", () => {
+        state.mode = "tools";
         resetFilters();
         rerenderAll();
       });

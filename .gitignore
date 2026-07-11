@@ -4,3 +4,4 @@ __pycache__/
 config/local-roots.json
 config/local-cli-catalog.json
 skills-data.js
+config/local-tools.json
